@@ -28,7 +28,9 @@ def join(address):
 	sendMessage(address, welcomeMsg, server=True)
 	broadcastMessage(address, broadcastMsg, server=True)
 
+
 # Removes a client address from set of clients and notifies the chatroom.
+# Assumes client exists in set.
 def quit(address):
 	clients.remove(address)
 	quitMsg = 'You have left the chatroom. Thanks!'
@@ -36,7 +38,8 @@ def quit(address):
 	sendMessage(address, quitMsg, server=True)
 	broadcastMessage(address, broadcastMsg, server=True)
 
-# Broacasts a received message to all clients except the sender address.
+
+# Broacasts a received message to all unmuted clients except the sender address.
 # If server is True, then the server is original sender of message. 
 # (Used for making server announcemnts like user joining/quitting etc.)
 #
@@ -50,13 +53,18 @@ def broadcastMessage(address, message, server=False):
 		if(client != address and client not in muted):
 			sendMessage(client, message, server)
 
+
 # Sends a message to the specified address.
+# Server parameter denotes the sender
 def sendMessage(address, message, server=False):
+	ServerName = 'SERVER' # Used for sending server messages
 	sender = (ServerName if server else address)
 	message = processSendMessage(sender, message)
 	serverSocket.sendto(message.encode(), address);
 	print('SENT message to %s:\n\t%s' %  (str(address), message))
 
+
+# Mutes the client. Assumes they exist in set of clients.
 def mute(address):
 	muted.add(address)
 	muteMsg = 'You have been muted from the chatroom.'
@@ -64,6 +72,8 @@ def mute(address):
 	sendMessage(address, muteMsg, server=True)
 	broadcastMessage(address, broadcastMsg, server=True)
 
+
+# Unmutes the client. Assumes they exist in set of clients.
 def unmute(address):
 	muted.remove(address)
 	unmuteMsg = 'You have been unmuted from the chatroom.'
@@ -71,6 +81,8 @@ def unmute(address):
 	sendMessage(address, unmuteMsg, server=True)
 	broadcastMessage(address, broadcastMsg, server=True)
 
+
+# Sends list of active clients to specified address
 def getUsers(address):
 	message = 'ACTIVE CLIENTS:\n'
 	for client in clients:
@@ -78,13 +90,17 @@ def getUsers(address):
 	message = message.strip() #remove last \n
 	sendMessage(address, message, server=True)
 
-# Preprocess message
+
+# Preprocess message before it is sent
 def processSendMessage(sender, message):
 	msg = '%s:\n\t%s\n' % (str(sender), message)
 	return msg
 
+
+# Preprocess a message that is received
 def processRcvMessage(message):
 	return message.strip()
+
 
 ##############################
 ### SETUP AND START SERVER ###
@@ -100,7 +116,6 @@ commands = {JOIN_MSG: join,
 			'!unmute': unmute,
 			'!users': getUsers }
 
-ServerName = 'SERVER' # Used for sending server messages
 serverPort = 8080
 serverSocket = socket(AF_INET, SOCK_DGRAM)
 serverSocket.bind(('', serverPort))
@@ -112,7 +127,8 @@ while True:
 	message, clientAddress = serverSocket.recvfrom(bufferSize)
 	message = message.decode()
 
-	# Only broadcast messages from active clients
+	# Only consider messages from active clients
+	# or if client is attempting to join
 	if clientAddress in clients or message == JOIN_MSG:
 		if message in commands:
 			commands[message](clientAddress) # run command
