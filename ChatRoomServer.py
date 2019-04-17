@@ -45,7 +45,7 @@ def quit(address):
 #		message\n
 def broadcastMessage(address, message, server=False):
 	message = processRcvMessage(message)
-	print('RECEIVED message from %s:\n\t%s' % (str(address), message))
+	print('RECEIVED message from %s:\n\t%s\n' % (str(address), message))
 	for client in clients:
 		if(client != address and client not in muted):
 			sendMessage(client, message, server)
@@ -55,7 +55,7 @@ def sendMessage(address, message, server=False):
 	sender = (ServerName if server else address)
 	message = processSendMessage(sender, message)
 	serverSocket.sendto(message.encode(), address);
-	print('SENT message to %s:\n\t' %  str(address))
+	print('SENT message to %s:\n\t%s' %  (str(address), message))
 
 def mute(address):
 	muted.add(address)
@@ -93,7 +93,8 @@ clients = set()
 muted = set()
 
 # Commands that require no arguments except the client's address
-commands = {'!join': join,
+JOIN_MSG = '!join'
+commands = {JOIN_MSG: join,
 			'!quit': quit,
 			'!mute': mute,
 			'!unmute': unmute,
@@ -111,9 +112,11 @@ while True:
 	message, clientAddress = serverSocket.recvfrom(bufferSize)
 	message = message.decode()
 
-	if message in commands:
-		commands[message](clientAddress)
-	elif clientAddress in clients:
-		broadcastMessage(clientAddress, message) 	# Only broadcast messages from active clients
+	# Only broadcast messages from active clients
+	if clientAddress in clients or message == JOIN_MSG:
+		if message in commands:
+			commands[message](clientAddress) # run command
+		else:
+			broadcastMessage(clientAddress, message)
 
 	
