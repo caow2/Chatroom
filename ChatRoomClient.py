@@ -2,7 +2,6 @@ from socket import *
 from threading import *
 import sys
 import time
-import signal
 
 '''
 Client side of ChatRoom application (UDP-based).
@@ -81,5 +80,6 @@ try:
 	receiveMsgThread.start()
 except Exception as e:
 	print(e)
+	print('Unable to start application due to threading issue.')
 
 
