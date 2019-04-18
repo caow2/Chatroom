@@ -27,7 +27,7 @@ def join(address):
 	clients.add(address)
 	welcomeMsg = 'Welcome to the chatroom! There are currently %s total users.' % str(len(clients))
 	broadcastMsg = 'User %s has joined the chatroom.' % str(address)
-	sendMessage(address, welcomeMsg, server=True)
+	sendMessage(address, welcomeMsg)
 	broadcastMessage(address, broadcastMsg, server=True)
 
 
@@ -37,13 +37,15 @@ def quit(address):
 	removeClient(address)
 	quitMsg = 'You have left the chatroom. Thanks!'
 	broadcastMsg = 'User %s has left the chatroom.' % str(address)
-	sendMessage(address, quitMsg, server=True)
+	sendMessage(address, quitMsg)
 	broadcastMessage(address, broadcastMsg, server=True)
+
 
 def removeClient(address):
 	clients.remove(address)
 	if address in muted:
 		muted.remove(address)
+
 
 # Broacasts a received message to all unmuted clients except the sender address.
 # If server is True, then the server is original sender of message. 
@@ -57,19 +59,18 @@ def broadcastMessage(address, message, server=False):
 	# Only print if receiving message from client
 	if not server:
 		print('RECEIVED message from %s:\n\t%s\n' % (str(address), message))
+	sender = 'SERVER' if server else str(address)
 	for client in clients:
 		if(client != address and client not in muted):
-			sendMessage(client, message, server)
+			sendMessage(client, message, sender)
 
 
 # Sends a message to the specified address.
-# Server parameter denotes the sender
-def sendMessage(address, message, server=False):
-	ServerName = 'SERVER' # Used for sending server messages
-	sender = (ServerName if server else address)
+# default sender is the server if not specified
+def sendMessage(receiver, message, sender='SERVER'):
 	message = processSendMessage(sender, message)
-	serverSocket.sendto(message.encode(), address);
-	print('SENT message to %s:\n\t%s' %  (str(address), message))
+	serverSocket.sendto(message.encode(), receiver);
+	print('SENT message to %s:\n\t%s' %  (str(receiver), message))
 
 
 # Mutes the client. Assumes they exist in set of clients.
@@ -81,7 +82,7 @@ def mute(address):
 		userMsg = 'You have been muted from the chatroom.'
 		broadcastMsg = 'User %s has opted to be muted.' % str(address)
 		broadcastMessage(address, broadcastMsg, server=True)
-	sendMessage(address, userMsg, server=True)
+	sendMessage(address, userMsg)
 
 # Unmutes the client. Assumes they exist in set of clients.
 def unmute(address):
@@ -90,7 +91,7 @@ def unmute(address):
 	muted.remove(address)
 	unmuteMsg = 'You have been unmuted from the chatroom.'
 	broadcastMsg = 'User %s has been opted to be unmuted.' % str(address)
-	sendMessage(address, unmuteMsg, server=True)
+	sendMessage(address, unmuteMsg)
 	broadcastMessage(address, broadcastMsg, server=True)
 
 
@@ -100,7 +101,7 @@ def getUsers(address):
 	for client in clients:
 		message += '\t' + str(client) + '\n'
 	message = message.strip() #remove last \n
-	sendMessage(address, message, server=True)
+	sendMessage(address, message)
 
 
 # Preprocess message before it is sent
