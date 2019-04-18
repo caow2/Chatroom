@@ -22,21 +22,29 @@ and server just needs to broadcast it.
 #################
 # Adds a client to the set of clients and notifies the chatroom
 def join(address):
+	if address in clients:
+		return
 	clients.add(address)
 	welcomeMsg = 'Welcome to the chatroom! There are currently %s total users.' % str(len(clients))
 	broadcastMsg = 'User %s has joined the chatroom.' % str(address)
-	sendMessage(address, welcomeMsg, server=True)
+	sendMessage(address, welcomeMsg)
 	broadcastMessage(address, broadcastMsg, server=True)
 
 
 # Removes a client address from set of clients and notifies the chatroom.
 # Assumes client exists in set.
 def quit(address):
-	clients.remove(address)
+	removeClient(address)
 	quitMsg = 'You have left the chatroom. Thanks!'
 	broadcastMsg = 'User %s has left the chatroom.' % str(address)
-	sendMessage(address, quitMsg, server=True)
+	sendMessage(address, quitMsg)
 	broadcastMessage(address, broadcastMsg, server=True)
+
+
+def removeClient(address):
+	clients.remove(address)
+	if address in muted:
+		muted.remove(address)
 
 
 # Broacasts a received message to all unmuted clients except the sender address.
@@ -48,37 +56,42 @@ def quit(address):
 #		message\n
 def broadcastMessage(address, message, server=False):
 	message = processRcvMessage(message)
-	print('RECEIVED message from %s:\n\t%s\n' % (str(address), message))
+	# Only print if receiving message from client
+	if not server:
+		print('RECEIVED message from %s:\n\t%s\n' % (str(address), message))
+	sender = 'SERVER' if server else str(address)
 	for client in clients:
 		if(client != address and client not in muted):
-			sendMessage(client, message, server)
+			sendMessage(client, message, sender)
 
 
 # Sends a message to the specified address.
-# Server parameter denotes the sender
-def sendMessage(address, message, server=False):
-	ServerName = 'SERVER' # Used for sending server messages
-	sender = (ServerName if server else address)
+# default sender is the server if not specified
+def sendMessage(receiver, message, sender='SERVER'):
 	message = processSendMessage(sender, message)
-	serverSocket.sendto(message.encode(), address);
-	print('SENT message to %s:\n\t%s' %  (str(address), message))
+	serverSocket.sendto(message.encode(), receiver);
+	print('SENT message to %s:\n\t%s' %  (str(receiver), message))
 
 
 # Mutes the client. Assumes they exist in set of clients.
 def mute(address):
-	muted.add(address)
-	muteMsg = 'You have been muted from the chatroom.'
-	broadcastMsg = 'User %s has opted to be muted.' % str(address)
-	sendMessage(address, muteMsg, server=True)
-	broadcastMessage(address, broadcastMsg, server=True)
-
+	if address in muted:
+		userMsg = 'You are already muted.'
+	else:
+		muted.add(address)
+		userMsg = 'You have been muted from the chatroom.'
+		broadcastMsg = 'User %s has opted to be muted.' % str(address)
+		broadcastMessage(address, broadcastMsg, server=True)
+	sendMessage(address, userMsg)
 
 # Unmutes the client. Assumes they exist in set of clients.
 def unmute(address):
+	if address not in muted:
+		return  # Already unmuted
 	muted.remove(address)
 	unmuteMsg = 'You have been unmuted from the chatroom.'
 	broadcastMsg = 'User %s has been opted to be unmuted.' % str(address)
-	sendMessage(address, unmuteMsg, server=True)
+	sendMessage(address, unmuteMsg)
 	broadcastMessage(address, broadcastMsg, server=True)
 
 
@@ -88,7 +101,7 @@ def getUsers(address):
 	for client in clients:
 		message += '\t' + str(client) + '\n'
 	message = message.strip() #remove last \n
-	sendMessage(address, message, server=True)
+	sendMessage(address, message)
 
 
 # Preprocess message before it is sent
@@ -128,11 +141,11 @@ while True:
 	message = message.decode()
 
 	# Only consider messages from active clients
-	# or if client is attempting to join
-	if clientAddress in clients or message == JOIN_MSG:
+	if clientAddress in clients:
+		broadcastMessage(clientAddress, message)
 		if message in commands:
 			commands[message](clientAddress) # run command
-		else:
-			broadcastMessage(clientAddress, message)
+	elif message == JOIN_MSG:
+		commands[message](clientAddress)	# or if client is attempting to join
 
 	
